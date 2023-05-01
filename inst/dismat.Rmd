@@ -1,0 +1,60 @@
+---
+title: "Disordered *matrices* with the `disordR` package: an introduction to class `dismat`"
+author: "Robin Hankin"
+output: html_document
+---
+
+In this short experimental discussion I set out the `dismat` virtual
+`S4` class.
+
+The idea is that we can have a matrix-like object with row or column
+indexing via `disindex` objects.  Thus class `dismat_rd_ci` has row
+indexing via `dismat` objectss and column indexing via (regular) index
+objects, class` dismat_ri_cd` has row indexing via index objects and
+column indexing via `disindex` objects, and class `dismat_rd_cd` has
+both row and column indexing via `dismat` objects.  First I will
+define some extraction methods for `dismat_rd_ci` objects:
+
+```{r defina}
+M <- matrix(1:35,5,7)
+a <- dismat_rd_ci(M)
+a
+
+
+```{r showerror1,error=TRUE}
+rowSums(M) # This is INCORRECT! rowSums() should return a disord object!
+colSums(M)
+```
+
+Object `a` has rows indexed by `disindex` objects and columns by
+regular index objects.  Thus attempting to access rows with a regular
+index object should return an error:
+
+```{r showerror,error=TRUE}
+a[1,]
+```
+
+I am not sure how this will pan out, but the only way to access rows
+is to use `apply()`, for which we need a new method.  As an example,
+we will extract just the rows of `a` that are even:
+
+```{r applyapply}
+(a_rowsums <- apply(a,1,sum))
+(wanted <- a_rowsums%%2==0)
+(e <- which(wanted))
+```
+
+So `wanted` is a boolean `disord` vector that can be used to extract
+rows of `a`:
+
+```{r wantedrowsofa}
+a[wanted,]
+```
+
+But we can also extract using `e`:
+
+```{r wantedrowsofausinge,error=TRUE}
+a[e,]
+```
+
+
