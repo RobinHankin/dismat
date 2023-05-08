@@ -1,0 +1,134 @@
+---
+title: "Matrix multiplication with the `dismat` package"
+author: "Robin Hankin"
+date: "2023-05-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+
+```{r,echo=FALSE}
+names <-  c("robin","bobby","sandy")
+days <- c("Mon","Tue","Wed","Thu")
+things <- c("petrol","parking")
+costs <- matrix(c(1.01,1.03,1.01,1.04,2.31,2.42,3.22,2.32),byrow=TRUE,2,4)
+dimnames(costs) <- list(commodity=things,day=days)
+
+wentout <- matrix(c(1,1,1, 0,1,0, 1,1,0, 0,0,1),4,3,byrow=TRUE)
+dimnames(wentout) <- list(day=days,name=names)
+```
+
+We have two matrices, `costs` and `wentout`:
+
+```{r}
+costs
+```
+
+
+Thus on Monday, petrol cost \$1.01 and parking cost \$2.31 and on Tuesday petrol cost \$1.03, and so on.
+Now `wentout`:
+
+```{r}
+wentout
+```
+
+We see that on Monday, all three people went out, on Tuesday only `bobby` went out, and so on.  We want to know
+how much money each person spent on each commodity.  This is given by the standard matrix product:
+
+```{r}
+costs %*% wentout
+```
+
+
+So far so good. But consider this:
+
+```{r}
+costs2 <- matrix(c(1.03,1.01,1.02,1.07,2.44,2.23,3.21,2.01),byrow=TRUE,2,4)
+dimnames(costs2) <- list(commodity=things,day=c("Fri","Sat","Sun","Mon"))
+costs2
+```
+
+We have a matrix, `costs2` that refers to a _different_ set of days.  Now a matrix product
+of `costs2` and `wentout` should really return an error because we are contracting on two
+incompatible sets of days.  Matrix `costs2` refers to Fri-Mon, while `wentout` refers to `Mon-Thu`.
+But:
+
+```{r}
+costs2 %*% wentout
+```
+
+We see that the matrix product operates without returning an error.  This operation should be 
+prohibited, but it silently returns garbage.
+
+Further, consider this:
+
+```{r}
+costs3 <- costs[,c(1,3,2,4)]
+costs3
+```
+
+Matrix `costs3` is a perfectly meaningful costs matrix, but the days are muddled up, and the columns 
+refer to Mon, Wed, Tue, Thu.   The naive matrix product `costs3 %*% wentout` should also return an 
+error, but:
+
+```{r}
+costs3 %*% wentout
+```
+
+We see that the matrix product again silently returns garbage.  The `dismat` package
+defines several new classes of matrices to trap this kind of undefined operation, and return a meaningful
+error message.  But there are several operations that are well-defined:
+
+
+```{r}
+(wentout3 <- wentout[c(1,3,2,4),])
+costs3 %*% wentout3
+```
+
+Above we see a perfectly defined matrix product, and it is clear that this should be allowed.
+The order of the summation in the inner product is immaterial, which suggests that using a
+the days as a summation variable [that is, the row index of `wentout` and the column index of `costs`]
+should be a `disindex` object from the `disordR` package.
+
+Part of the problem is that the row names of `wentout` do not have to be unique.  Consider augmenting our data
+collection with a subsequent Monday:
+
+```{r}
+(costs4 <- cbind(costs,Mon=c(1.12,2.66)))
+(wentout4 <- rbind(wentout,Mon=c(1,0,0)))
+```
+
+Now we have two days named `Mon`.  But this does not matter; the matrix product is well-defined:
+
+```{r}
+costs4 %*% wentout4
+```
+
+
+Another observation: we can dispense with the people's names and the commodity names.  We could think
+about the people and indeed the commodities as being indexed by their position in the matrix:
+
+```{r}
+costs5 <- costs4 ;  rownames(costs5) <- NULL
+wentout5 <- wentout4 ;  colnames(wentout5) <- NULL
+costs5
+costs5 %*% wentout5
+```
+
+Going back to `costs4` we could equally dispense with the names of the days:
+
+```{r}
+costs6 <- costs4; colnames(costs6) <- NULL
+wentout6 <- wentout4 ; rownames(wentout6) <- NULL
+costs6
+wentout6
+costs6 %*% wentout6
+```
+
+But in this case we also need, somehow, to check for consistency between the unnamed columns of `costs6` and the unnamed rows of `wentout6`.
+
